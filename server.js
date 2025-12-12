@@ -62,6 +62,11 @@ let globalScores = {}; // Key: playerName, Value: score
 // Serve static files (index.html, CSS, client-side JS)
 app.use(express.static(__dirname)); // Serves files from the root (like index.html)
 
+// Health check endpoint for Render's keep-alive service
+app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
 function broadcastLobbyInfo() {
     const lobbyInfo = Object.keys(gameRooms).map(roomId => {
         const room = gameRooms[roomId];
