@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Game Lobby</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="icon" href="data:,">
+    <style>
+        .coeff-input {
+            width: 50px;
+            text-align: center;
+            font-size: 1.5rem;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        /* Hide number input arrows */
+        .coeff-input::-webkit-outer-spin-button,
+        .coeff-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .reaction-text {
+            font-size: 2rem;
+            font-family: monospace;
+        }
+        .player-card {
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+
+    <!-- Global Leaderboard -->
+    <div id="leaderboard-container" class="fixed top-5 right-5 w-64 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl p-4 z-50 border border-gray-200">
+        <h2 class="text-lg font-bold text-center text-gray-800 mb-3">🏆 Global Leaderboard</h2>
+        <ol id="leaderboard-list" class="space-y-2">
+            <!-- Scores will be populated here by JavaScript -->
+            <li class="text-center text-gray-500">Loading scores...</li>
+        </ol>
+    </div>
+
+    <style>
+        #leaderboard-list li { font-size: 0.95rem; }
+        #leaderboard-list li::marker { font-weight: bold; color: #6b7280; }
+    </style>
+
+    <div id="name-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <h2 class="text-2xl font-bold mb-4">Enter Your Name</h2>
+            <p class="text-gray-600 mb-6">What should we call you in the game? (Optional)</p>
+            <input type="text" id="name-input" class="border-2 border-gray-300 p-2 rounded-lg w-full mb-4 focus:border-blue-500 focus:ring-blue-500" placeholder="Your Name" maxlength="15">
+            <div class="flex justify-center space-x-4">
+                <button onclick="submitPlayerName()" class="px-6 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600">Save</button>
+                <button onclick="closeNameModal()" class="px-6 py-2 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">Skip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="main-container" class="max-w-4xl w-full bg-white shadow-xl rounded-lg p-8">
+        
+        <!-- Lobby View -->
+        <div id="lobby-view">
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">Game Lobby</h1>
+            <p class="text-center text-gray-600 mb-6">Join an existing game or start a new one!</p>
+            <div id="lobby-list" class="space-y-4 mb-6">
+                <!-- Game rooms will be dynamically inserted here -->
+            </div>
+            <h2 class="text-2xl font-semibold text-gray-700 mt-8 mb-3 border-b pb-1">Start a New Game</h2>
+            <div class="flex flex-wrap justify-center items-center gap-4">
+                <button onclick="joinGame({ gameType: 'chemical' })" class="px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition duration-150">
+                    Chemical Challenge
+                </button>
+                <button onclick="joinGame({ gameType: 'projectile' })" class="px-6 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">
+                    Projectile Path
+                </button>
+                <button onclick="joinGame({ gameType: 'logicGate' })" class="px-6 py-3 bg-pink-500 text-white font-bold rounded-lg hover:bg-pink-600 transition duration-150">
+                    Logic Gate Challenge
+                </button>
+                <button onclick="joinGame({ gameType: 'vectorVoyage' })" class="px-6 py-3 bg-teal-500 text-white font-bold rounded-lg hover:bg-teal-600 transition duration-150">
+                    Vector Voyage
+                </button>
+            </div>
+        </div>
+
+        <!-- Game View -->
+        <div id="game-view" class="hidden">
+            <!-- Game Container: Chemical Equilibrium -->
+            <div id="chemical-game-container">
+                <h1 class="text-3xl font-bold text-center text-green-700 mb-4 border-b pb-2">
+                    Chemical Equilibrium Challenge 🧪
+                </h1>
+                <p class="text-center text-gray-600 mb-6">
+                    Race your opponent to correctly balance the chemical equation below by adjusting the coefficients.
+                </p>
+                <div id="equation-area" class="flex justify-center items-center flex-wrap space-x-2 p-8 bg-blue-50 rounded-lg shadow-inner mb-6"></div>
+                <div id="chemical-controls" class="flex justify-center gap-4 -mt-2 mb-6">
+                    <button id="submit-chemical-button" onclick="submitChemicalAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">Submit Answer</button>
+                    <button id="retry-chemical-button" onclick="retryChemicalAnswer()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition duration-150">Reset</button>
+                </div>
+            </div>
+
+            <!-- Game Container: Logic Gate Challenge -->
+            <div id="logic-gate-game-container" class="hidden">
+                <h1 class="text-3xl font-bold text-center text-pink-700 mb-4 border-b pb-2">
+                    Logic Gate Challenge 🧠
+                </h1>
+                <p class="text-center text-gray-600 mb-6">
+                    Pick the correct gate to match the truth table output.
+                </p>
+                <div id="truth-table-container" class="bg-gray-100 p-4 rounded-lg shadow-inner max-w-md mx-auto"></div>
+                <p class="text-center text-gray-600 mt-8 mb-2">Select a Gate:</p>
+                <div id="gate-palette" class="flex justify-center items-center gap-2 mb-6"></div>
+                <div class="flex justify-center mb-6"><button onclick="submitLogicGateAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Circuit</button></div>
+            </div>
+
+            <!-- Game Container: Vector Voyage -->
+            <div id="vector-voyage-game-container" class="hidden">
+                <h1 class="text-3xl font-bold text-center text-teal-700 mb-4 border-b pb-2">
+                    Vector Voyage 🧭
+                </h1>
+                <p class="text-center text-gray-600 mb-6">
+                    Combine the vectors to reach the target point on the grid. All challenges begin from the center of the grid.
+                </p>
+                <canvas id="vector-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
+                <p class="text-center text-gray-600 mt-6 mb-2">Available Vectors:</p>
+                <div id="vector-palette" class="flex justify-center items-center gap-2 mb-6"></div>
+                <div class="flex justify-center gap-4 mb-6">
+                    <button onclick="submitVectorVoyageAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Path</button>
+                    <button onclick="resetVectorVoyage()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600">Reset</button></div>
+            </div>
+
+            <!-- Game Container: Projectile Path -->
+            <div id="projectile-game-container" class="hidden">
+                <h1 class="text-3xl font-bold text-center text-blue-700 mb-4 border-b pb-2">
+                    Projectile Path 🎯
+                </h1>
+                <p class="text-center text-gray-600 mb-6">
+                    Adjust the angle and velocity to hit the target. First to hit it wins!
+                </p>
+                <canvas id="projectile-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div class="flex flex-col">
+                        <label for="angle-slider" class="text-center">Angle: <span id="angle-value">45</span>°</label>
+                        <input type="range" id="angle-slider" min="1" max="90" value="45" class="w-full">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="velocity-slider" class="text-center">Velocity: <span id="velocity-value">50</span> m/s</label>
+                        <input type="range" id="velocity-slider" min="1" max="100" value="50" class="w-full">
+                    </div>
+                    <button onclick="fireProjectile()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 h-full">FIRE!</button>
+                </div>
+            </div>
+
+            <div id="status-message" class="text-center text-xl font-semibold p-4 rounded-lg bg-yellow-200 text-yellow-800 mb-6">
+                Waiting for players...
+            </div>
+
+            <h2 class="text-2xl font-semibold text-gray-700 mb-3 border-b pb-1">Scoreboard</h2>
+            <div id="player-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+            <div class="mt-8 flex justify-center items-center gap-4">
+                <button id="leave-game-button" onclick="leaveGame()" class="px-6 py-3 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition duration-150">
+                    Leave Game
+                </button>
+                <button id="new-game-button" onclick="requestNewGame()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 hidden">
+                    Play Again in this Room
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio elements for sound effects -->
+    <audio id="sound-correct" src="/sounds/correct.mp3" preload="auto"></audio>
+    <audio id="sound-incorrect" src="/sounds/incorrect.mp3" preload="auto"></audio>
+    <audio id="sound-win" src="/sounds/win.mp3" preload="auto"></audio>
+    <audio id="sound-fire" src="/sounds/fire.mp3" preload="auto"></audio>
+    <audio id="sound-click" src="/sounds/click.mp3" preload="auto"></audio>
+    <audio id="sound-reset" src="/sounds/reset.mp3" preload="auto"></audio>
+
+
+    <script>
+        // Connect to the Socket.io server (runs on the same host and port by default)
+        const socket = io();
+
+        let myPlayerId = null;
+        let gameState = {}; // To hold the latest game state for the current room
+
+        const statusMessage = document.getElementById('status-message');
+        const playerList = document.getElementById('player-list');
+        const equationArea = document.getElementById('equation-area');
+        const chemicalGameContainer = document.getElementById('chemical-game-container');
+        const lobbyView = document.getElementById('lobby-view');
+        const gameView = document.getElementById('game-view');
+        const lobbyList = document.getElementById('lobby-list');
+        const newGameButton = document.getElementById('new-game-button');
+        const leaveGameButton = document.getElementById('leave-game-button');
+        const logicGateGameContainer = document.getElementById('logic-gate-game-container');
+        const vectorVoyageGameContainer = document.getElementById('vector-voyage-game-container');
+        const projectileGameContainer = document.getElementById('projectile-game-container');
+        const projectileCanvas = document.getElementById('projectile-canvas');
+        const submitChemicalButton = document.getElementById('submit-chemical-button');
+        const retryChemicalButton = document.getElementById('retry-chemical-button');
+
+        const nameModal = document.getElementById('name-modal');
+        const nameInput = document.getElementById('name-input');
+        let coeffInputs = [];
+
+        let selectedGate = null; // For the logic gate game
+        let placedVectors = []; // For the vector voyage game
+        // --- Client-side Game Logic ---
+        let audioInitialized = false;
+        let audioContext;
+
+        function initAudio() {
+            if (audioInitialized) return;
+            // Create or resume the AudioContext on the first user interaction.
+            // This is the modern way to "unlock" audio in browsers.
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') audioContext.resume();
+            audioInitialized = true;
+        }
+
+        // Helper function to play sounds
+        function playSound(id) {
+            const sound = document.getElementById(id);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.error("Error playing sound:", e));
+            }
+        }
+
+        // Function to send current coefficients to the server
+        function sendCoefficients() {
+            const coefficients = coeffInputs.map(input => parseInt(input.value));
+            // Ensure inputs are valid numbers >= 1
+            if (gameState.isGameActive && coefficients.every(c => !isNaN(c) && c >= 1)) {
+                socket.emit('updateCoefficients', coefficients);
+            }
+        }
+
+        function showNameModal() {
+            nameModal.classList.remove('hidden');
+            nameInput.focus();
+        }
+
+        function closeNameModal() {
+            nameModal.classList.add('hidden');
+        }
+
+        function submitPlayerName() {
+            const name = nameInput.value;
+            if (name && name.trim().length > 0) {
+                socket.emit('setPlayerName', name);
+            }
+            closeNameModal();
+        }
+
+        window.joinGame = function(options) {
+            initAudio(); // Unlock audio on the first click to join a game
+            playSound('sound-click');
+            socket.emit('joinRoom', options);
+        }
+
+        window.requestNewGame = function() {
+            playSound('sound-click');
+            socket.emit('requestNewGame');
+        }
+
+        window.leaveGame = function() {
+            playSound('sound-click');
+            socket.emit('leaveRoom');
+        }
+
+        function submitChemicalAnswer() {
+            // This function is now the primary way to send an answer for the chemical game
+            playSound('sound-click');
+            sendCoefficients();
+        }
+
+        function retryChemicalAnswer() {
+            // Reset all coefficient inputs to 1 and notify the server
+            playSound('sound-reset');
+            coeffInputs.forEach(input => {
+                input.value = 1;
+            });
+            socket.emit('resetChemicalCoefficients');
+        }
+
+        function submitLogicGateAnswer() {
+            const placedGates = [];
+            const selectedButton = document.querySelector('#gate-palette .border-pink-500');
+            if (selectedButton) placedGates.push(selectedButton.dataset.gate);
+            if (placedGates.length > 0) socket.emit('submitLogicGate', placedGates);
+        }
+
+        function submitVectorVoyageAnswer() {
+            playSound('sound-click');
+            socket.emit('submitVectorVoyage', placedVectors);
+        }
+
+        function resetVectorVoyage() {
+            playSound('sound-reset');
+            placedVectors = [];
+            renderVectorVoyageGame();
+        }
+
+        function fireProjectile() {
+            playSound('sound-fire');
+            const angle = parseInt(document.getElementById('angle-slider').value);
+            const velocity = parseInt(document.getElementById('velocity-slider').value);
+            socket.emit('fireProjectile', { angle, velocity });
+        }
+
+        // --- Socket.io Event Handlers ---
+
+        // Event: Receive personal player info (name, id)
+        socket.on('connect', () => {
+            // On connection or reconnection, reset local state and show lobby
+            console.log('Connected to server!');
+            gameState = {};
+            // Request initial data like player info and leaderboard
+            socket.emit('requestInitialData');
+        });
+
+        // Listen for leaderboard updates from the server
+        const leaderboardList = document.getElementById('leaderboard-list');
+        socket.on('leaderboardUpdate', (leaderboard) => {
+            leaderboardList.innerHTML = ''; // Clear the current list
+            if (leaderboard.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-center text-gray-500" style="list-style: none;">No scores yet!</li>';
+            } else {
+                leaderboard.forEach(player => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `<span class="font-semibold text-gray-700">${player.name}</span>: <span class="font-bold text-indigo-600">${player.score}</span>`;
+                    leaderboardList.appendChild(listItem);
+                });
+            }
+        });
+
+        socket.on('playerInfo', (info) => {
+            myPlayerId = info.id;
+            showNameModal();
+        });
+
+        // Event: Game state update (received from the server)
+        socket.on('gameUpdate', (newGameState) => {
+            gameState = newGameState; // Update our local copy of the game state
+
+            // If the update indicates we are not in a room, show the lobby.
+            if (!gameState || !gameState.roomId) {
+                gameState = {}; // Ensure state is clean
+                coeffInputs = []; // CRITICAL: Clear the coefficient inputs array
+                gameView.classList.add('hidden');
+                lobbyView.classList.remove('hidden');
+                return;
+            }
+            
+            // Show game view, hide lobby
+            lobbyView.classList.add('hidden');
+            gameView.classList.remove('hidden');
+
+            // Toggle game containers
+            chemicalGameContainer.classList.toggle('hidden', gameState.gameType !== 'chemical');
+            logicGateGameContainer.classList.toggle('hidden', gameState.gameType !== 'logicGate');
+            vectorVoyageGameContainer.classList.toggle('hidden', gameState.gameType !== 'vectorVoyage');
+            projectileGameContainer.classList.toggle('hidden', gameState.gameType !== 'projectile');
+
+            // Show the "Play Again" button only if the game is over AND there are enough players.
+            const showPlayAgain = !gameState.isGameActive && gameState.playerCount >= 2;
+            newGameButton.classList.toggle('hidden', !showPlayAgain);
+
+            // Enable/disable chemical game controls based on game state
+            const chemControlsActive = gameState.gameType === 'chemical' && gameState.isGameActive;
+            submitChemicalButton.disabled = !chemControlsActive;
+            retryChemicalButton.disabled = !chemControlsActive;
+            if (chemControlsActive) {
+                submitChemicalButton.classList.remove('bg-gray-400', 'cursor-not-allowed', 'hover:bg-gray-400');
+                retryChemicalButton.classList.remove('bg-gray-400', 'cursor-not-allowed', 'hover:bg-gray-400');
+            } else {
+                submitChemicalButton.classList.add('bg-gray-400', 'cursor-not-allowed', 'hover:bg-gray-400');
+                retryChemicalButton.classList.add('bg-gray-400', 'cursor-not-allowed', 'hover:bg-gray-400');
+            }
+
+
+            // Render the active game
+            if (gameState.gameType === 'chemical') {
+                renderChemicalGame();
+            } else if (gameState.gameType === 'logicGate') {
+                renderLogicGateGame();
+            } else if (gameState.gameType === 'vectorVoyage') {
+                renderVectorVoyageGame();
+            } else if (gameState.gameType === 'projectile') {
+                renderProjectileGame();
+            }
+
+            // Render common elements
+            renderPlayerList();
+            updateStatusMessage();
+        });
+
+        socket.on('lobbyUpdate', (rooms) => {
+            // A lobby update should only ever affect the lobby view.
+            // We don't want it to hide the game view if the player is in a game.
+            // The gameUpdate handler is now responsible for showing/hiding views.
+
+            lobbyList.innerHTML = '';
+            if (rooms.length === 0) {
+                lobbyList.innerHTML = '<p class="text-center text-gray-500">No active games. Why not start one?</p>';
+                return;
+            }
+
+            rooms.forEach(room => {
+                const gameName = room.gameType === 'chemical' ? 'Chemical Challenge' : (room.gameType === 'projectile' ? 'Projectile Path' : (room.gameType === 'logicGate' ? 'Logic Gate Challenge' : 'Vector Voyage'));
+                const canJoin = !room.isGameActive;
+                const buttonClass = canJoin ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed';
+                const buttonText = canJoin ? 'Join' : 'In Progress';
+
+                const roomEl = document.createElement('div');
+                roomEl.className = 'p-4 bg-gray-100 rounded-lg flex justify-between items-center';
+                roomEl.innerHTML = `
+                    <div>
+                        <p class="font-bold text-lg">${gameName}</p>
+                        <p class="text-sm text-gray-600">Players: ${room.playerCount} / 2</p>
+                    </div>
+                    <button onclick="joinGame({ gameType: '${room.gameType}' })" class="px-4 py-2 text-white font-bold rounded-lg transition ${buttonClass}" ${!canJoin ? 'disabled' : ''}>${buttonText}</button>
+                `;
+                lobbyList.appendChild(roomEl);
+            });
+        });
+
+        function renderChemicalGame() {
+            equationArea.innerHTML = '';
+            coeffInputs = [];
+            let coeffIndex = 0;
+            gameState.chemical.equation.structure.forEach(part => {
+                if (part.type === 'reactant' || part.type === 'product') {
+                    const termDiv = document.createElement('div');
+                    termDiv.className = 'reaction-text flex items-center';
+                    
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.id = `coeff-${coeffIndex}`;
+                    input.className = 'coeff-input text-blue-600';
+                    input.min = 1;
+                    input.value = 1;
+                    coeffInputs.push(input);
+
+                    const formulaSpan = document.createElement('span');
+                    formulaSpan.className = 'font-extrabold text-gray-800';
+                    formulaSpan.innerHTML = part.value; // Use innerHTML to render subscripts
+
+                    termDiv.appendChild(input);
+                    termDiv.appendChild(formulaSpan);
+                    equationArea.appendChild(termDiv);
+                    coeffIndex++;
+                } else if (part.type === 'operator') {
+                    const operatorSpan = document.createElement('span');
+                    operatorSpan.className = 'text-3xl font-bold text-gray-500';
+                    if (part.value === '→') {
+                        operatorSpan.classList.add('text-red-500');
+                    }
+                    operatorSpan.textContent = part.value;
+                    equationArea.appendChild(operatorSpan);
+                }
+            });
+
+            // Sync my inputs with the server's state
+            const myCoeffs = gameState.players[myPlayerId]?.coefficients || [];
+            myCoeffs.forEach((val, i) => {
+                if (coeffInputs[i]) coeffInputs[i].value = val;
+            });
+        }
+
+        function renderLogicGateGame() {
+            const { challenge } = gameState.logicGate;
+            const truthTableContainer = document.getElementById('truth-table-container');
+            const palette = document.getElementById('gate-palette');
+
+            // Guard clause: If there's no challenge data yet, do nothing.
+            if (!challenge) return;
+
+            // Render Truth Table
+            let tableHTML = '<h3 class="text-lg font-bold text-center mb-2">Truth Table</h3><table class="w-full text-center"><thead><tr>';
+            for (let i = 0; i < challenge.inputs; i++) {
+                tableHTML += `<th class="border p-2">IN ${i + 1}</th>`;
+            }
+            tableHTML += '<th class="border p-2 bg-pink-200">OUT</th></tr></thead><tbody>';
+            challenge.solution.truthTable.forEach(row => {
+                tableHTML += '<tr>';
+                row.inputs.forEach(input => {
+                    tableHTML += `<td class="border p-2 font-mono">${input}</td>`;
+                });
+                tableHTML += `<td class="border p-2 font-mono bg-pink-100">${row.output}</td>`;
+                tableHTML += '</tr>';
+            });
+            tableHTML += '</tbody></table>';
+            truthTableContainer.innerHTML = tableHTML;
+
+            // Render Gate Palette
+            palette.innerHTML = '';
+            challenge.available.forEach(gateType => {
+                const gateButton = document.createElement('div');
+                gateButton.className = 'p-2 border-2 border-gray-400 rounded bg-gray-200 cursor-pointer hover:bg-pink-200';
+                gateButton.textContent = gateType;
+                gateButton.dataset.gate = gateType;
+                gateButton.onclick = () => {
+                    // Visually mark this button as selected and deselect others
+                    document.querySelectorAll('#gate-palette > div').forEach(el => el.classList.remove('border-pink-500', 'border-4'));
+                    gateButton.classList.add('border-pink-500', 'border-4');
+                };
+                palette.appendChild(gateButton);
+            });
+        }
+
+        function renderVectorVoyageGame() {
+            const canvas = document.getElementById('vector-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const origin = { x: canvas.width / 2, y: canvas.height / 2 };
+            const gridSpacing = 50;
+
+            // Clear canvas and draw grid
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= canvas.width; x += gridSpacing) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= canvas.height; y += gridSpacing) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw target
+            if (gameState.vectorVoyage && gameState.vectorVoyage.challenge) {
+                const target = gameState.vectorVoyage.challenge.target;
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(origin.x + target[0], origin.y - target[1], 10, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            // Draw placed vectors
+            let currentPos = { ...origin };
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(currentPos.x, currentPos.y);
+            placedVectors.forEach(vec => {
+                const nextX = currentPos.x + vec[0];
+                const nextY = currentPos.y - vec[1];
+                ctx.lineTo(nextX, nextY);
+                currentPos = { x: nextX, y: nextY };
+            });
+            ctx.stroke();
+
+            // Render vector palette
+            const palette = document.getElementById('vector-palette');
+            palette.innerHTML = '';
+            if (gameState.vectorVoyage && gameState.vectorVoyage.challenge) {
+                gameState.vectorVoyage.challenge.available.forEach(vec => {
+                    const vecButton = document.createElement('div');
+                    vecButton.className = 'p-2 border-2 border-gray-400 rounded bg-gray-200 cursor-pointer hover:bg-teal-200';
+                    vecButton.textContent = `[${vec[0]}, ${vec[1]}]`;
+                    vecButton.onclick = () => {
+                        playSound('sound-click');
+                        placedVectors.push(vec);
+                        renderVectorVoyageGame();
+                    };
+                    palette.appendChild(vecButton);
+                });
+            }
+        }
+
+        function renderProjectileGame() {
+            const canvas = projectileCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const groundY = canvas.height - 20;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ground
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(0, groundY, canvas.width, 20);
+
+            // Draw cannon
+            ctx.fillStyle = 'black';
+            ctx.fillRect(10, groundY - 30, 40, 30);
+
+            // Draw target
+            const target = gameState.projectile.target;
+            if (target) {
+                ctx.fillStyle = 'red';
+                ctx.fillRect(target.x - 10, groundY - target.y - 10, 20, 20);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(target.x - 5, groundY - target.y - 5, 10, 10);
+            }
+
+            // Draw previous shots
+            for (const id in gameState.players) {
+                const shot = gameState.players[id].lastShot;
+                if (shot) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = id === myPlayerId ? 'blue' : 'rgba(0,0,0,0.3)';
+                    ctx.lineWidth = 2;
+                    const g = 9.8;
+                    const angleRad = shot.angle * (Math.PI / 180);
+                    const vx = shot.velocity * Math.cos(angleRad);
+                    const vy = shot.velocity * Math.sin(angleRad);
+                    for (let t = 0; t < 20; t += 0.1) {
+                        const x = vx * t + 25; // Offset from cannon
+                        const y = groundY - (vy * t - 0.5 * g * t * t);
+                        if (y > groundY) break;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function renderPlayerList() {
+            playerList.innerHTML = '';
+            for (const id in gameState.players) {
+                const player = gameState.players[id];
+                const isMe = id === myPlayerId;
+                const card = document.createElement('div');
+                card.className = `player-card p-4 rounded-lg shadow-md ${isMe ? 'bg-green-100 border-2 border-green-500' : 'bg-gray-50'}`;
+                
+                let detailsHtml = '';
+                if (gameState.gameType === 'chemical') {
+                    const score = gameState.scores[id] || 0;
+                    let guessString = '';
+                    let coeffCounter = 0;
+                    gameState.chemical.equation.structure.forEach(part => {
+                        if (part.type === 'reactant' || part.type === 'product') {
+                            const coeff = player.coefficients[coeffCounter] || 1;
+                            guessString += `${coeff}${part.value}`;
+                            coeffCounter++;
+                        } else if (part.type === 'operator') {
+                            guessString += ` ${part.value} `;
+                        }
+                    });
+                    detailsHtml = `<p class="text-sm text-gray-600">Score: <span class="font-bold text-lg text-green-600">${score}</span></p>
+                                   <p class="text-sm text-gray-600 mt-1">Current guess: <span class="font-mono text-base text-blue-600">${guessString.replace(/\s+/g, ' ').trim()}</span></p>`;
+                } else if (gameState.gameType === 'logicGate') {
+                    const score = gameState.scores[id] || 0;
+                    const state = player.logicGateState || [];
+                    detailsHtml = `<p class="text-sm text-gray-600">Score: <span class="font-bold text-lg text-pink-600">${score}</span></p><p class="text-sm text-gray-600 mt-1">Circuit: ${state.join(', ')}</p>`;
+                } else if (gameState.gameType === 'projectile') {
+                    const score = gameState.scores[id] || 0;
+                    const shot = player.lastShot;
+                    const shotDetails = shot ? `Angle: ${shot.angle}°, Vel: ${shot.velocity} m/s` : 'No shot yet';
+                    detailsHtml = `<p class="text-sm text-gray-600">Score: <span class="font-bold text-lg text-blue-600">${score}</span></p><p class="text-sm text-gray-600 mt-1">Last Shot: ${shotDetails}</p>`;
+                } else if (gameState.gameType === 'vectorVoyage') {
+                    const score = gameState.scores[id] || 0;
+                    const vectors = player.vectorVoyageState || [];
+                    const pathDetails = vectors.length > 0 ? vectors.map(v => `[${v[0]},${v[1]}]`).join(' + ') : 'No vectors placed';
+                    detailsHtml = `<p class="text-sm text-gray-600">Score: <span class="font-bold text-lg text-teal-600">${score}</span></p><p class="text-sm text-gray-600 mt-1">Path: ${pathDetails}</p>`;
+                }
+
+                card.innerHTML = `
+                    <p class="font-bold text-lg ${isMe ? 'text-green-800' : 'text-gray-800'}">${player.name}${isMe ? ' (You)' : ''}</p>
+                    ${detailsHtml}
+                `;
+                playerList.appendChild(card);
+            }
+        }
+
+        function updateStatusMessage() {
+            if (gameState.playerCount < 2) {
+                statusMessage.textContent = `Need ${2 - gameState.playerCount} more player(s) to start the race!`;
+                statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-yellow-200 text-yellow-800 mb-6';
+            } else if (gameState.isGameActive) {
+                let gameOnMessage = 'GAME ON!';
+                if (gameState.gameType === 'chemical') {
+                    gameOnMessage = 'GAME ON! First to balance wins.';
+                } else if (gameState.gameType === 'logicGate') {
+                    gameOnMessage = 'GAME ON! First to build the circuit wins.';
+                } else if (gameState.gameType === 'vectorVoyage') {
+                    gameOnMessage = 'GAME ON! First to reach the target wins.';
+                } else if (gameState.gameType === 'projectile') {
+                    gameOnMessage = 'GAME ON! First to hit the target wins.';
+                }
+                statusMessage.textContent = gameOnMessage;
+                statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-green-200 text-green-800 mb-6';
+            } else if (gameState.winner) {
+                 statusMessage.textContent = `GAME OVER! Waiting for players to start a new game.`;
+                 statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-gray-200 text-gray-800 mb-6';
+            } else if (gameState.specialMessage) {
+                statusMessage.textContent = gameState.specialMessage;
+                statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-yellow-200 text-yellow-800 mb-6';
+            }
+        }
+
+        // Event: Game Over
+        socket.on('gameOver', (data) => {
+            const winnerIsMe = data.winner && data.winner.id === myPlayerId;
+            let message = winnerIsMe ? `YOU WIN! 🎉` : `WINNER: ${data.winner.name}! 🏆`;
+
+            if (gameState.gameType === 'chemical') {
+                let finalEquation = '';
+                let coeffCounter = 0;
+                gameState.chemical.equation.structure.forEach(part => {
+                    if (part.type === 'reactant' || part.type === 'product') {
+                        const coeff = gameState.chemical.equation.target[coeffCounter];
+                        finalEquation += (coeff === 1 ? '' : coeff) + part.value;
+                        coeffCounter++;
+                    } else if (part.type === 'operator') {
+                        finalEquation += ` ${part.value} `;
+                    }
+                });
+                message += ` The balanced equation is ${finalEquation.replace(/\s+/g, ' ').trim()}`;
+                // Set final coefficients on the winning client to show the correct answer
+                gameState.chemical.equation.target.forEach((val, i) => {
+                    if(coeffInputs[i]) coeffInputs[i].value = val;
+                });
+            }
+
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-xl font-extrabold p-4 rounded-lg bg-red-500 text-white mb-6';
+        });
+
+        socket.on('chemicalRoundEnd', (data) => {
+            playSound('sound-win');
+            const winnerIsMe = data.winner && data.winner.id === myPlayerId;
+            let message = winnerIsMe ? `YOU WON THE ROUND! 🎉` : `WINNER: ${data.winner.name}! 🏆`;
+
+            let finalEquation = '';
+            let coeffCounter = 0;
+            data.structure.forEach(part => { // Use data.structure directly
+                if (part.type === 'reactant' || part.type === 'product') {
+                    const coeff = data.targetEquation[coeffCounter]; // Use data.targetEquation
+                    finalEquation += (coeff === 1 ? '' : coeff) + part.value;
+                    coeffCounter++;
+                } else if (part.type === 'operator') {
+                    finalEquation += ` ${part.value} `;
+                }
+            });
+            message += ` The balanced equation is ${finalEquation.replace(/\s+/g, ' ').trim()}. Next challenge in 5 seconds...`;
+
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-xl font-extrabold p-4 rounded-lg bg-green-500 text-white mb-6'; // Green for round win
+
+            // Set final coefficients on the winning client to show the correct answer
+            data.targetEquation.forEach((val, i) => {
+                if(coeffInputs[i]) coeffInputs[i].value = val;
+            });
+        });
+
+        socket.on('chemicalAnswerResult', ({ correct }) => {
+            playSound('sound-incorrect');
+            statusMessage.textContent = 'Incorrect answer, please try again!';
+            statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-red-200 text-red-800 mb-6';
+        });
+
+        socket.on('logicGateRoundEnd', (data) => {
+            playSound('sound-win');
+            const winnerIsMe = data.winner && data.winner.id === myPlayerId;
+            let message = winnerIsMe ? `YOU WON THE ROUND! 🎉` : `WINNER: ${data.winner.name}! 🏆`;
+            if (data.correctGates && data.correctGates.length > 0) {
+                message += ` The correct gate was: ${data.correctGates.join(', ')}.`;
+            }
+            message += ` Next challenge in 5 seconds...`;
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-xl font-extrabold p-4 rounded-lg bg-green-500 text-white mb-6';
+        });
+
+        socket.on('logicGateAnswerResult', ({ correct }) => {
+            playSound('sound-incorrect');
+            statusMessage.textContent = 'Incorrect circuit logic, please try again!';
+            statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-red-200 text-red-800 mb-6';
+        });
+
+        socket.on('vectorVoyageRoundEnd', (data) => {
+            playSound('sound-win');
+            const winnerIsMe = data.winner && data.winner.id === myPlayerId;
+            let message = winnerIsMe ? `YOU WON THE ROUND! 🎉` : `WINNER: ${data.winner.name}! 🏆`;
+            if (data.correctGates && data.correctGates.length > 0) {
+                message += ` The correct gate was: ${data.correctGates.join(', ')}.`;
+            }
+            message += ` Next challenge in 5 seconds...`;
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-xl font-extrabold p-4 rounded-lg bg-green-500 text-white mb-6';
+        });
+
+        socket.on('vectorVoyageAnswerResult', ({ correct }) => {
+            playSound('sound-incorrect');
+            statusMessage.textContent = 'Incorrect path, please reset and try again!';
+            statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-red-200 text-red-800 mb-6';
+        });
+
+        socket.on('projectileRoundEnd', (data) => {
+            playSound('sound-win');
+            const winnerIsMe = data.winner && data.winner.id === myPlayerId;
+            let message = winnerIsMe ? `YOU WON THE ROUND! 🎉` : `WINNER: ${data.winner.name}! 🏆`;
+            if (data.correctGates && data.correctGates.length > 0) {
+                message += ` The correct gate was: ${data.correctGates.join(', ')}.`;
+            }
+            message += ` Next challenge in 5 seconds...`;
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-xl font-extrabold p-4 rounded-lg bg-green-500 text-white mb-6';
+            renderProjectileGame(); // Re-render to show final winning shot
+        });
+
+        socket.on('projectileMiss', () => {
+            playSound('sound-incorrect');
+            statusMessage.textContent = 'You missed! Try adjusting your angle or velocity.';
+            statusMessage.className = 'text-center text-xl font-semibold p-4 rounded-lg bg-red-200 text-red-800 mb-6';
+        });
+
+        // UI Listeners for sliders
+        document.getElementById('angle-slider').addEventListener('input', (e) => {
+            document.getElementById('angle-value').textContent = e.target.value;
+        });
+        document.getElementById('velocity-slider').addEventListener('input', (e) => {
+            document.getElementById('velocity-value').textContent = e.target.value;
+        });
+        // Initial setup for coefficients
+    </script>
+
+</body>
+</html>
