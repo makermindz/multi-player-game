@@ -5,7 +5,16 @@ const socketIo = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+// Allow connections from any origin for Socket.IO (for iframe embedding)
+// For better security, you can replace "*" with your website's domain,
+// e.g., "https://my-nonprofit-website.org"
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // --- Game Data ---
 const CHEMICAL_EQUATIONS = [
@@ -61,6 +70,14 @@ let globalScores = {}; // Key: playerName, Value: score
 
 // Serve static files (index.html, CSS, client-side JS)
 app.use(express.static(__dirname)); // Serves files from the root (like index.html)
+
+// Add headers to allow the site to be embedded in an iframe
+app.use((req, res, next) => {
+    // For better security, you can replace "*" with your website's domain,
+    // e.g., "frame-ancestors 'self' https://my-nonprofit-website.org;"
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *");
+    next();
+});
 
 // Health check endpoint for Render's keep-alive service
 app.get('/ping', (req, res) => {
