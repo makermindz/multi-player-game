@@ -84,6 +84,13 @@ app.get('/ping', (req, res) => {
     res.status(200).send('pong');
 });
 
+// A public endpoint to reset the global leaderboard, accessible by automated services.
+app.get('/reset-leaderboard', (req, res) => {
+    globalScores = {};
+    broadcastLeaderboard(); // Notify all clients that the leaderboard has been cleared
+    return res.status(200).send('Global leaderboard has been cleared.');
+});
+
 function broadcastLobbyInfo() {
     const lobbyInfo = Object.keys(gameRooms).map(roomId => {
         const room = gameRooms[roomId];

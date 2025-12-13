@@ -250,7 +250,7 @@
 
         function showNameModal() {
             nameModal.classList.remove('hidden');
-            nameInput.focus();
+            nameInput.focus({ preventScroll: true });
         }
 
         function closeNameModal() {
