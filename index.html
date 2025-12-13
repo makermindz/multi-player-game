@@ -34,20 +34,6 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
 
-    <!-- Global Leaderboard -->
-    <div id="leaderboard-container" class="fixed top-5 right-5 w-64 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl p-4 z-50 border border-gray-200">
-        <h2 class="text-lg font-bold text-center text-gray-800 mb-3">🏆 Global Leaderboard</h2>
-        <ol id="leaderboard-list" class="space-y-2">
-            <!-- Scores will be populated here by JavaScript -->
-            <li class="text-center text-gray-500">Loading scores...</li>
-        </ol>
-    </div>
-
-    <style>
-        #leaderboard-list li { font-size: 0.95rem; }
-        #leaderboard-list li::marker { font-weight: bold; color: #6b7280; }
-    </style>
-
     <div id="name-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
         <div class="bg-white p-8 rounded-lg shadow-xl text-center w-full max-w-sm">
             <h2 class="text-2xl font-bold mb-4">Enter Your Name</h2>
@@ -60,117 +46,134 @@
         </div>
     </div>
 
-    <!-- Main Container -->
-    <div id="main-container" class="max-w-4xl w-full bg-white shadow-xl rounded-lg p-8">
-        
-        <!-- Lobby View -->
-        <div id="lobby-view">
-            <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">Game Lobby</h1>
-            <p class="text-center text-gray-600 mb-6">Join an existing game or start a new one!</p>
-            <div id="lobby-list" class="space-y-4 mb-6">
-                <!-- Game rooms will be dynamically inserted here -->
+    <!-- Game Wrapper for side-by-side layout -->
+    <div id="game-wrapper" class="flex flex-row items-start gap-6">
+
+        <!-- Main Container -->
+        <div id="main-container" class="max-w-3xl w-full bg-white shadow-xl rounded-lg p-8">
+            
+            <!-- Lobby View -->
+            <div id="lobby-view">
+                <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">Game Lobby</h1>
+                <p class="text-center text-gray-600 mb-6">Join an existing game or start a new one!</p>
+                <div id="lobby-list" class="space-y-4 mb-6">
+                    <!-- Game rooms will be dynamically inserted here -->
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-700 mt-8 mb-3 border-b pb-1">Start a New Game</h2>
+                <div class="flex flex-wrap justify-center items-center gap-4">
+                    <button onclick="joinGame({ gameType: 'chemical' })" class="px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition duration-150">
+                        Chemical Challenge
+                    </button>
+                    <button onclick="joinGame({ gameType: 'projectile' })" class="px-6 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">
+                        Projectile Path
+                    </button>
+                    <button onclick="joinGame({ gameType: 'logicGate' })" class="px-6 py-3 bg-pink-500 text-white font-bold rounded-lg hover:bg-pink-600 transition duration-150">
+                        Logic Gate Challenge
+                    </button>
+                    <button onclick="joinGame({ gameType: 'vectorVoyage' })" class="px-6 py-3 bg-teal-500 text-white font-bold rounded-lg hover:bg-teal-600 transition duration-150">
+                        Vector Voyage
+                    </button>
+                </div>
             </div>
-            <h2 class="text-2xl font-semibold text-gray-700 mt-8 mb-3 border-b pb-1">Start a New Game</h2>
-            <div class="flex flex-wrap justify-center items-center gap-4">
-                <button onclick="joinGame({ gameType: 'chemical' })" class="px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition duration-150">
-                    Chemical Challenge
-                </button>
-                <button onclick="joinGame({ gameType: 'projectile' })" class="px-6 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">
-                    Projectile Path
-                </button>
-                <button onclick="joinGame({ gameType: 'logicGate' })" class="px-6 py-3 bg-pink-500 text-white font-bold rounded-lg hover:bg-pink-600 transition duration-150">
-                    Logic Gate Challenge
-                </button>
-                <button onclick="joinGame({ gameType: 'vectorVoyage' })" class="px-6 py-3 bg-teal-500 text-white font-bold rounded-lg hover:bg-teal-600 transition duration-150">
-                    Vector Voyage
-                </button>
+
+            <!-- Game View -->
+            <div id="game-view" class="hidden">
+                <!-- Game Container: Chemical Equilibrium -->
+                <div id="chemical-game-container">
+                    <h1 class="text-3xl font-bold text-center text-green-700 mb-4 border-b pb-2">
+                        Chemical Equilibrium Challenge 🧪
+                    </h1>
+                    <p class="text-center text-gray-600 mb-6">
+                        Race your opponent to correctly balance the chemical equation below by adjusting the coefficients.
+                    </p>
+                    <div id="equation-area" class="flex justify-center items-center flex-wrap space-x-2 p-8 bg-blue-50 rounded-lg shadow-inner mb-6"></div>
+                    <div id="chemical-controls" class="flex justify-center gap-4 -mt-2 mb-6">
+                        <button id="submit-chemical-button" onclick="submitChemicalAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">Submit Answer</button>
+                        <button id="retry-chemical-button" onclick="retryChemicalAnswer()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition duration-150">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Game Container: Logic Gate Challenge -->
+                <div id="logic-gate-game-container" class="hidden">
+                    <h1 class="text-3xl font-bold text-center text-pink-700 mb-4 border-b pb-2">
+                        Logic Gate Challenge 🧠
+                    </h1>
+                    <p class="text-center text-gray-600 mb-6">
+                        Pick the correct gate to match the truth table output.
+                    </p>
+                    <div id="truth-table-container" class="bg-gray-100 p-4 rounded-lg shadow-inner max-w-md mx-auto"></div>
+                    <p class="text-center text-gray-600 mt-8 mb-2">Select a Gate:</p>
+                    <div id="gate-palette" class="flex justify-center items-center gap-2 mb-6"></div>
+                    <div class="flex justify-center mb-6"><button onclick="submitLogicGateAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Circuit</button></div>
+                </div>
+
+                <!-- Game Container: Vector Voyage -->
+                <div id="vector-voyage-game-container" class="hidden">
+                    <h1 class="text-3xl font-bold text-center text-teal-700 mb-4 border-b pb-2">
+                        Vector Voyage 🧭
+                    </h1>
+                    <p class="text-center text-gray-600 mb-6">
+                        Combine the vectors to reach the target point on the grid. All challenges begin from the center of the grid.
+                    </p>
+                    <canvas id="vector-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
+                    <p class="text-center text-gray-600 mt-6 mb-2">Available Vectors:</p>
+                    <div id="vector-palette" class="flex justify-center items-center gap-2 mb-6"></div>
+                    <div class="flex justify-center gap-4 mb-6">
+                        <button onclick="submitVectorVoyageAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Path</button>
+                        <button onclick="resetVectorVoyage()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600">Reset</button></div>
+                </div>
+
+                <!-- Game Container: Projectile Path -->
+                <div id="projectile-game-container" class="hidden">
+                    <h1 class="text-3xl font-bold text-center text-blue-700 mb-4 border-b pb-2">
+                        Projectile Path 🎯
+                    </h1>
+                    <p class="text-center text-gray-600 mb-6">
+                        Adjust the angle and velocity to hit the target. First to hit it wins!
+                    </p>
+                    <canvas id="projectile-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                        <div class="flex flex-col">
+                            <label for="angle-slider" class="text-center">Angle: <span id="angle-value">45</span>°</label>
+                            <input type="range" id="angle-slider" min="1" max="90" value="45" class="w-full">
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="velocity-slider" class="text-center">Velocity: <span id="velocity-value">50</span> m/s</label>
+                            <input type="range" id="velocity-slider" min="1" max="100" value="50" class="w-full">
+                        </div>
+                        <button onclick="fireProjectile()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 h-full">FIRE!</button>
+                    </div>
+                </div>
+
+                <div id="status-message" class="text-center text-xl font-semibold p-4 rounded-lg bg-yellow-200 text-yellow-800 mb-6">
+                    Waiting for players...
+                </div>
+
+                <h2 class="text-2xl font-semibold text-gray-700 mb-3 border-b pb-1">Scoreboard</h2>
+                <div id="player-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+                <div class="mt-8 flex justify-center items-center gap-4">
+                    <button id="leave-game-button" onclick="leaveGame()" class="px-6 py-3 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition duration-150">
+                        Leave Game
+                    </button>
+                    <button id="new-game-button" onclick="requestNewGame()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 hidden">
+                        Play Again in this Room
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Game View -->
-        <div id="game-view" class="hidden">
-            <!-- Game Container: Chemical Equilibrium -->
-            <div id="chemical-game-container">
-                <h1 class="text-3xl font-bold text-center text-green-700 mb-4 border-b pb-2">
-                    Chemical Equilibrium Challenge 🧪
-                </h1>
-                <p class="text-center text-gray-600 mb-6">
-                    Race your opponent to correctly balance the chemical equation below by adjusting the coefficients.
-                </p>
-                <div id="equation-area" class="flex justify-center items-center flex-wrap space-x-2 p-8 bg-blue-50 rounded-lg shadow-inner mb-6"></div>
-                <div id="chemical-controls" class="flex justify-center gap-4 -mt-2 mb-6">
-                    <button id="submit-chemical-button" onclick="submitChemicalAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition duration-150">Submit Answer</button>
-                    <button id="retry-chemical-button" onclick="retryChemicalAnswer()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition duration-150">Reset</button>
-                </div>
-            </div>
-
-            <!-- Game Container: Logic Gate Challenge -->
-            <div id="logic-gate-game-container" class="hidden">
-                <h1 class="text-3xl font-bold text-center text-pink-700 mb-4 border-b pb-2">
-                    Logic Gate Challenge 🧠
-                </h1>
-                <p class="text-center text-gray-600 mb-6">
-                    Pick the correct gate to match the truth table output.
-                </p>
-                <div id="truth-table-container" class="bg-gray-100 p-4 rounded-lg shadow-inner max-w-md mx-auto"></div>
-                <p class="text-center text-gray-600 mt-8 mb-2">Select a Gate:</p>
-                <div id="gate-palette" class="flex justify-center items-center gap-2 mb-6"></div>
-                <div class="flex justify-center mb-6"><button onclick="submitLogicGateAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Circuit</button></div>
-            </div>
-
-            <!-- Game Container: Vector Voyage -->
-            <div id="vector-voyage-game-container" class="hidden">
-                <h1 class="text-3xl font-bold text-center text-teal-700 mb-4 border-b pb-2">
-                    Vector Voyage 🧭
-                </h1>
-                <p class="text-center text-gray-600 mb-6">
-                    Combine the vectors to reach the target point on the grid. All challenges begin from the center of the grid.
-                </p>
-                <canvas id="vector-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
-                <p class="text-center text-gray-600 mt-6 mb-2">Available Vectors:</p>
-                <div id="vector-palette" class="flex justify-center items-center gap-2 mb-6"></div>
-                <div class="flex justify-center gap-4 mb-6">
-                    <button onclick="submitVectorVoyageAnswer()" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600">Submit Path</button>
-                    <button onclick="resetVectorVoyage()" class="px-6 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600">Reset</button></div>
-            </div>
-
-            <!-- Game Container: Projectile Path -->
-            <div id="projectile-game-container" class="hidden">
-                <h1 class="text-3xl font-bold text-center text-blue-700 mb-4 border-b pb-2">
-                    Projectile Path 🎯
-                </h1>
-                <p class="text-center text-gray-600 mb-6">
-                    Adjust the angle and velocity to hit the target. First to hit it wins!
-                </p>
-                <canvas id="projectile-canvas" class="w-full h-96 bg-gray-100 rounded-lg shadow-inner mb-4"></canvas>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                    <div class="flex flex-col">
-                        <label for="angle-slider" class="text-center">Angle: <span id="angle-value">45</span>°</label>
-                        <input type="range" id="angle-slider" min="1" max="90" value="45" class="w-full">
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="velocity-slider" class="text-center">Velocity: <span id="velocity-value">50</span> m/s</label>
-                        <input type="range" id="velocity-slider" min="1" max="100" value="50" class="w-full">
-                    </div>
-                    <button onclick="fireProjectile()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 h-full">FIRE!</button>
-                </div>
-            </div>
-
-            <div id="status-message" class="text-center text-xl font-semibold p-4 rounded-lg bg-yellow-200 text-yellow-800 mb-6">
-                Waiting for players...
-            </div>
-
-            <h2 class="text-2xl font-semibold text-gray-700 mb-3 border-b pb-1">Scoreboard</h2>
-            <div id="player-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-
-            <div class="mt-8 flex justify-center items-center gap-4">
-                <button id="leave-game-button" onclick="leaveGame()" class="px-6 py-3 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition duration-150">
-                    Leave Game
-                </button>
-                <button id="new-game-button" onclick="requestNewGame()" class="px-6 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150 hidden">
-                    Play Again in this Room
-                </button>
-            </div>
+        <!-- Global Leaderboard -->
+        <div id="leaderboard-container" class="w-64 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl p-4 border border-gray-200">
+            <h2 class="text-lg font-bold text-center text-gray-800 mb-3">🏆 Global Leaderboard</h2>
+            <ol id="leaderboard-list" class="space-y-2">
+                <!-- Scores will be populated here by JavaScript -->
+                <li class="text-center text-gray-500">Loading scores...</li>
+            </ol>
+            <style>
+                #leaderboard-list li { font-size: 0.95rem; }
+                #leaderboard-list li::marker { font-weight: bold; color: #6b7280; }
+            </style>
         </div>
     </div>
 
